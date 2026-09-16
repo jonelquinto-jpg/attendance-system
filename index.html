@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Training Attendance Sheet</title>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 15px; max-width: 500px; }
+    input, button { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; }
+    canvas { border: 1px solid #ccc; width: 100%; height: 160px; border-radius: 4px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- INITIATOR VIEW -->
+  <div id="initiatorView">
+    <h2>Initiator Setup</h2>
+    <input type="text" id="initProject" placeholder="Project Name">
+    <input type="text" id="initTopic" placeholder="Course / Topic">
+    <input type="date" id="initDate">
+    <button onclick="generateQR()">Generate QR Code</button>
+    <div id="qrcode" style="margin-top:15px;"></div>
+  </div>
+
+  <!-- EMPLOYEE VIEW -->
+  <div id="employeeView" class="hidden">
+    <h2>Attendance Sign-In</h2>
+    <p><b>Topic:</b> <span id="dispTopic"></span> | <b>Date:</b> <span id="dispDate"></span></p>
+    <input type="text" id="empName" placeholder="Full Name" required>
+    <input type="text" id="empId" placeholder="Employee ID" required>
+    <input type="text" id="empNat" placeholder="Nationality" required>
+    <input type="text" id="empPos" placeholder="Trade / Position" required>
+    
+    <label>Finger Signature:</label>
+    <canvas id="sigCanvas"></canvas>
+    <button type="button" onclick="signaturePad.clear()">Clear Signature</button>
+    <button type="button" onclick="submitAttendance()">Submit Attendance</button>
+  </div>
+
+<script>
+  const APPS_SCRIPT_URL = "YOUR_DEPLOYED_WEB_APP_URL"; // Paste AppScript URL here
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const canvas = document.getElementById('sigCanvas');
+  const signaturePad = new SignaturePad(canvas);
+
+  // Switch between Initiator and Employee Mode
+  if (urlParams.has('topic')) {
+    document.getElementById('initiatorView').classList.add('hidden');
+    document.getElementById('employeeView').classList.remove('hidden');
+    document.getElementById('dispTopic').innerText = urlParams.get('topic');
+    document.getElementById('dispDate').innerText = urlParams.get('date');
+  }
+
+  function generateQR() {
+    const project = encodeURIComponent(document.getElementById('initProject').value);
+    const topic = encodeURIComponent(document.getElementById('initTopic').value);
+    const date = encodeURIComponent(document.getElementById('initDate').value);
+    const targetUrl = `${window.location.origin}${window.location.pathname}?project=${project}&topic=${topic}&date=${date}`;
+    
+    document.getElementById('qrcode').innerHTML = "";
+    new QRCode(document.getElementById("qrcode"), targetUrl);
+  }
+
+  function submitAttendance() {
+    if (signaturePad.isEmpty()) {
+      alert("Please provide a finger signature.");
+      return;
+    }
+
+    const payload = {
+      projectName: urlParams.get('project'),
+      courseTopic: urlParams.get('topic'),
+      date: urlParams.get('date'),
+      name: document.getElementById('empName').value,
+      empId: document.getElementById('empId').value,
+      nationality: document.getElementById('empNat').value,
+      position: document.getElementById('empPos').value,
+      signature: signaturePad.toDataURL() // Converts finger drawing to Base64 image string
+    };
+
+    fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert("Attendance registered successfully!");
+      location.reload();
+    });
+  }
+</script>
+</body>
+</html>
