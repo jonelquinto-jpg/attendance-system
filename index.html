@@ -4,32 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Training Attendance Sheet</title>
-  <!-- Signature Pad & QR Code Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; max-width: 480px; }
-    h2 { margin-top: 0; }
-    input, button { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-    button { background-color: #0056b3; color: white; font-weight: bold; border: none; cursor: pointer; }
+    body { font-family: Arial, sans-serif; margin: 15px; max-width: 480px; }
+    input, button { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
+    button { background-color: #0056b3; color: white; font-weight: bold; border: none; }
     button.clear-btn { background-color: #6c757d; }
-    canvas { border: 1px solid #ccc; width: 100%; height: 180px; border-radius: 6px; touch-action: none; background: #fff; }
+    .canvas-container { border: 1px solid #000; width: 100%; height: 180px; border-radius: 6px; touch-action: none; background: #fff; margin: 10px 0; }
+    canvas { width: 100%; height: 100%; }
     .hidden { display: none; }
   </style>
 </head>
 <body>
 
-  <!-- 1. INITIATOR VIEW (Trainer configures session & generates QR) -->
+  <!-- INITIATOR VIEW -->
   <div id="initiatorView">
     <h2>Initiator Setup</h2>
     <input type="text" id="initProject" placeholder="Project Name">
     <input type="text" id="initTopic" placeholder="Course / Topic">
     <input type="date" id="initDate">
-    <button onclick="generateQR()">Generate QR Code</button>
+    <button type="button" onclick="generateQR()">Generate QR Code</button>
     <div id="qrcode" style="margin-top:20px; text-align:center;"></div>
   </div>
 
-  <!-- 2. EMPLOYEE VIEW (Attendees scan QR & sign on mobile) -->
+  <!-- EMPLOYEE VIEW (Opens on QR Scan) -->
   <div id="employeeView" class="hidden">
     <h2>Attendance Sign-In</h2>
     <p><b>Topic:</b> <span id="dispTopic"></span><br><b>Date:</b> <span id="dispDate"></span></p>
@@ -39,31 +38,37 @@
     <input type="text" id="empNat" placeholder="Nationality" required>
     <input type="text" id="empPos" placeholder="Trade / Position" required>
     
-    <label style="display:block; margin-top:10px;"><b>Finger Signature:</b></label>
-    <canvas id="sigCanvas"></canvas>
+    <label><b>Finger Signature:</b></label>
+    <div class="canvas-container">
+      <canvas id="sigCanvas"></canvas>
+    </div>
     
-    <button type="button" class="clear-btn" onclick="clearSignature()">Clear Signature</button>
+    <button type="button" class="clear-btn" onclick="clearSig()">Clear Signature</button>
     <button type="button" onclick="submitAttendance()">Submit Attendance</button>
   </div>
 
 <script>
-  // Paste your Apps Script Web App URL here
-   const folderId = "Attendance Sheet (test)";
+  // 1. REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+  const APPS_SCRIPT_URL = "YOUR_DEPLOYED_WEB_APP_URL_HERE";
 
   const urlParams = new URLSearchParams(window.location.search);
   let signaturePad;
 
-  // Check if page opened via QR Code (Employee Mode)
-  if (urlParams.has('topic')) {
-    document.getElementById('initiatorView').classList.add('hidden');
-    document.getElementById('employeeView').classList.remove('hidden');
-    document.getElementById('dispTopic').innerText = urlParams.get('topic');
-    document.getElementById('dispDate').innerText = urlParams.get('date');
+  // Initialize view on load
+  window.addEventListener('DOMContentLoaded', () => {
+    if (urlParams.has('topic')) {
+      document.getElementById('initiatorView').classList.add('hidden');
+      document.getElementById('employeeView').classList.remove('hidden');
+      document.getElementById('dispTopic').innerText = urlParams.get('topic') || '';
+      document.getElementById('dispDate').innerText = urlParams.get('date') || '';
 
-    // Initialize SignaturePad strictly inside browser scope
-    const canvas = document.getElementById('sigCanvas');
-    signaturePad = new SignaturePad(canvas);
-  }
+      // Initialize canvas with proper resolution sizing
+      const canvas = document.getElementById('sigCanvas');
+      canvas.width = canvas.parentElement.offsetWidth;
+      canvas.height = canvas.parentElement.offsetHeight;
+      signaturePad = new SignaturePad(canvas);
+    }
+  });
 
   function generateQR() {
     const project = encodeURIComponent(document.getElementById('initProject').value);
@@ -75,25 +80,25 @@
     new QRCode(document.getElementById("qrcode"), targetUrl);
   }
 
-  function clearSignature() {
+  function clearSig() {
     if (signaturePad) signaturePad.clear();
   }
 
   function submitAttendance() {
     if (!signaturePad || signaturePad.isEmpty()) {
-      alert("Please provide a finger signature before submitting.");
+      alert("Please draw your signature using your finger before submitting.");
       return;
     }
 
     const payload = {
-      projectName: urlParams.get('project'),
-      courseTopic: urlParams.get('topic'),
-      date: urlParams.get('date'),
+      projectName: urlParams.get('project') || '',
+      courseTopic: urlParams.get('topic') || '',
+      date: urlParams.get('date') || '',
       name: document.getElementById('empName').value,
       empId: document.getElementById('empId').value,
       nationality: document.getElementById('empNat').value,
       position: document.getElementById('empPos').value,
-      signature: signaturePad.toDataURL() // Converts finger drawing to Base64 image
+      signature: signaturePad.toDataURL()
     };
 
     fetch(APPS_SCRIPT_URL, {
@@ -103,10 +108,14 @@
     })
     .then(res => res.json())
     .then(data => {
-      alert("Attendance registered successfully!");
-      location.reload();
+      if (data.result === "success") {
+        alert("Attendance submitted successfully!");
+        location.reload();
+      } else {
+        alert("Error from server: " + data.error);
+      }
     })
-    .catch(err => alert("Submission failed: " + err.message));
+    .catch(err => alert("Connection failed: Check APPS_SCRIPT_URL or internet connection. Details: " + err.message));
   }
 </script>
 </body>
