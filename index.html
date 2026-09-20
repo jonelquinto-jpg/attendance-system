@@ -4,55 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Training Attendance Sheet</title>
+  <!-- Signature Pad & QR Code Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 15px; max-width: 500px; }
-    input, button { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; }
-    canvas { border: 1px solid #ccc; width: 100%; height: 160px; border-radius: 4px; }
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 480px; }
+    h2 { margin-top: 0; }
+    input, button { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    button { background-color: #0056b3; color: white; font-weight: bold; border: none; cursor: pointer; }
+    button.clear-btn { background-color: #6c757d; }
+    canvas { border: 1px solid #ccc; width: 100%; height: 180px; border-radius: 6px; touch-action: none; background: #fff; }
     .hidden { display: none; }
   </style>
 </head>
 <body>
 
-  <!-- INITIATOR VIEW -->
+  <!-- 1. INITIATOR VIEW (Trainer configures session & generates QR) -->
   <div id="initiatorView">
     <h2>Initiator Setup</h2>
     <input type="text" id="initProject" placeholder="Project Name">
     <input type="text" id="initTopic" placeholder="Course / Topic">
     <input type="date" id="initDate">
     <button onclick="generateQR()">Generate QR Code</button>
-    <div id="qrcode" style="margin-top:15px;"></div>
+    <div id="qrcode" style="margin-top:20px; text-align:center;"></div>
   </div>
 
-  <!-- EMPLOYEE VIEW -->
+  <!-- 2. EMPLOYEE VIEW (Attendees scan QR & sign on mobile) -->
   <div id="employeeView" class="hidden">
     <h2>Attendance Sign-In</h2>
-    <p><b>Topic:</b> <span id="dispTopic"></span> | <b>Date:</b> <span id="dispDate"></span></p>
+    <p><b>Topic:</b> <span id="dispTopic"></span><br><b>Date:</b> <span id="dispDate"></span></p>
+    
     <input type="text" id="empName" placeholder="Full Name" required>
     <input type="text" id="empId" placeholder="Employee ID" required>
     <input type="text" id="empNat" placeholder="Nationality" required>
     <input type="text" id="empPos" placeholder="Trade / Position" required>
     
-    <label>Finger Signature:</label>
+    <label style="display:block; margin-top:10px;"><b>Finger Signature:</b></label>
     <canvas id="sigCanvas"></canvas>
-    <button type="button" onclick="signaturePad.clear()">Clear Signature</button>
+    
+    <button type="button" class="clear-btn" onclick="clearSignature()">Clear Signature</button>
     <button type="button" onclick="submitAttendance()">Submit Attendance</button>
   </div>
 
 <script>
-  const APPS_SCRIPT_URL = "YOUR_DEPLOYED_WEB_APP_URL"; // Paste AppScript URL here
+  // Paste your Apps Script Web App URL here
+   const folderId = "Attendance Sheet (test)";
 
   const urlParams = new URLSearchParams(window.location.search);
-  const canvas = document.getElementById('sigCanvas');
-  const signaturePad = new SignaturePad(canvas);
+  let signaturePad;
 
-  // Switch between Initiator and Employee Mode
+  // Check if page opened via QR Code (Employee Mode)
   if (urlParams.has('topic')) {
     document.getElementById('initiatorView').classList.add('hidden');
     document.getElementById('employeeView').classList.remove('hidden');
     document.getElementById('dispTopic').innerText = urlParams.get('topic');
     document.getElementById('dispDate').innerText = urlParams.get('date');
+
+    // Initialize SignaturePad strictly inside browser scope
+    const canvas = document.getElementById('sigCanvas');
+    signaturePad = new SignaturePad(canvas);
   }
 
   function generateQR() {
@@ -65,9 +75,13 @@
     new QRCode(document.getElementById("qrcode"), targetUrl);
   }
 
+  function clearSignature() {
+    if (signaturePad) signaturePad.clear();
+  }
+
   function submitAttendance() {
-    if (signaturePad.isEmpty()) {
-      alert("Please provide a finger signature.");
+    if (!signaturePad || signaturePad.isEmpty()) {
+      alert("Please provide a finger signature before submitting.");
       return;
     }
 
@@ -79,18 +93,20 @@
       empId: document.getElementById('empId').value,
       nationality: document.getElementById('empNat').value,
       position: document.getElementById('empPos').value,
-      signature: signaturePad.toDataURL() // Converts finger drawing to Base64 image string
+      signature: signaturePad.toDataURL() // Converts finger drawing to Base64 image
     };
 
     fetch(APPS_SCRIPT_URL, {
       method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
     })
     .then(res => res.json())
     .then(data => {
       alert("Attendance registered successfully!");
       location.reload();
-    });
+    })
+    .catch(err => alert("Submission failed: " + err.message));
   }
 </script>
 </body>
