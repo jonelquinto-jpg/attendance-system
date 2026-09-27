@@ -23,24 +23,36 @@
   <div id="initiatorView">
     <h2>Initiator Setup</h2>
     <input type="text" id="initProject" placeholder="Project Name">
+    <input type="text" id="initCostCode" placeholder="Cost Code">
     <input type="text" id="initTopic" placeholder="Course / Topic">
     <input type="date" id="initDate">
+    <input type="text" id="initLocation" placeholder="Training Location">
+    <input type="time" id="initTime">
+    
     <button type="button" onclick="generateQR()">Generate QR Code</button>
     <div id="qrcode" style="margin-top:20px; text-align:center;"></div>
   </div>
 
-  <!-- EMPLOYEE VIEW (Target for Google Form Submission) -->
+  <!-- EMPLOYEE VIEW -->
   <div id="employeeView" class="hidden">
     <h2>Attendance Sign-In</h2>
-    <p><b>Topic:</b> <span id="dispTopic"></span> | <b>Date:</b> <span id="dispDate"></span></p>
+    <p>
+      <b>Project:</b> <span id="dispProject"></span> | <b>Cost Code:</b> <span id="dispCostCode"></span><br>
+      <b>Topic:</b> <span id="dispTopic"></span> | <b>Date:</b> <span id="dispDate"></span><br>
+      <b>Location:</b> <span id="dispLocation"></span> | <b>Time:</b> <span id="dispTime"></span>
+    </p>
     
     <form id="gform" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-      <!-- Hidden Google Form Entry Mapping (Replace entry numbers with your Google Form IDs) -->
+      <!-- Hidden Google Form Entry Mapping -->
       <input type="hidden" name="entry.424348885" id="gf_project">
+      <input type="hidden" name="entry.111111111" id="gf_costcode"> <!-- REPLACE WITH YOUR COST CODE ENTRY ID -->
       <input type="hidden" name="entry.90499623" id="gf_topic">
       <input type="hidden" name="entry.2020908678" id="gf_date">
-      <input type="hidden" name="entry.1855535517" id="gf_sig">
+      <input type="hidden" name="entry.222222222" id="gf_location"> <!-- REPLACE WITH YOUR LOCATION ENTRY ID -->
+      <input type="hidden" name="entry.333333333" id="gf_time">     <!-- REPLACE WITH YOUR TIME ENTRY ID -->
+      <input type="hidden" name="entry.999999999" id="gf_sig">      <!-- REPLACE WITH YOUR SIGNATURE ENTRY ID -->
 
+      <!-- Visible Inputs for Employee -->
       <input type="text" name="entry.490903515" id="empName" placeholder="Full Name" required>
       <input type="text" name="entry.1712959322" id="empId" placeholder="Employee ID" required>
       <input type="text" name="entry.580863824" id="empNat" placeholder="Nationality" required>
@@ -60,8 +72,6 @@
 
 <script>
   let submitted = false;
-  
-  // REPLACE THIS WITH YOUR GOOGLE FORM ACTION URL (ends with /formResponse)
   const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfZwL9l-ojH8a3ZHiNXqOeSufAvl8x-BKjmKEUhgYQ3xFbU_Q/formResponse";
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -71,13 +81,23 @@
     if (urlParams.has('topic')) {
       document.getElementById('initiatorView').classList.add('hidden');
       document.getElementById('employeeView').classList.remove('hidden');
+      
+      // Display training parameters to employee
+      document.getElementById('dispProject').innerText = urlParams.get('project') || '';
+      document.getElementById('dispCostCode').innerText = urlParams.get('costcode') || '';
       document.getElementById('dispTopic').innerText = urlParams.get('topic') || '';
       document.getElementById('dispDate').innerText = urlParams.get('date') || '';
+      document.getElementById('dispLocation').innerText = urlParams.get('location') || '';
+      document.getElementById('dispTime').innerText = urlParams.get('time') || '';
       
+      // Set values to form inputs
       document.getElementById('gform').action = GOOGLE_FORM_ACTION_URL;
       document.getElementById('gf_project').value = urlParams.get('project') || '';
+      document.getElementById('gf_costcode').value = urlParams.get('costcode') || '';
       document.getElementById('gf_topic').value = urlParams.get('topic') || '';
       document.getElementById('gf_date').value = urlParams.get('date') || '';
+      document.getElementById('gf_location').value = urlParams.get('location') || '';
+      document.getElementById('gf_time').value = urlParams.get('time') || '';
 
       const canvas = document.getElementById('sigCanvas');
       canvas.width = canvas.parentElement.offsetWidth;
@@ -88,9 +108,13 @@
 
   function generateQR() {
     const project = encodeURIComponent(document.getElementById('initProject').value);
+    const costcode = encodeURIComponent(document.getElementById('initCostCode').value);
     const topic = encodeURIComponent(document.getElementById('initTopic').value);
     const date = encodeURIComponent(document.getElementById('initDate').value);
-    const targetUrl = `${window.location.origin}${window.location.pathname}?project=${project}&topic=${topic}&date=${date}`;
+    const location = encodeURIComponent(document.getElementById('initLocation').value);
+    const time = encodeURIComponent(document.getElementById('initTime').value);
+
+    const targetUrl = `${window.location.origin}${window.location.pathname}?project=${project}&costcode=${costcode}&topic=${topic}&date=${date}&location=${location}&time=${time}`;
     
     document.getElementById('qrcode').innerHTML = "";
     new QRCode(document.getElementById("qrcode"), targetUrl);
