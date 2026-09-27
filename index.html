@@ -8,8 +8,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 15px; max-width: 480px; }
+    h2 { margin-top: 0; }
     input, button { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
-    button { background-color: #0056b3; color: white; font-weight: bold; border: none; }
+    button { background-color: #0056b3; color: white; font-weight: bold; border: none; cursor: pointer; }
     button.clear-btn { background-color: #6c757d; }
     .canvas-container { border: 1px solid #000; width: 100%; height: 180px; border-radius: 6px; touch-action: none; background: #fff; margin: 10px 0; }
     canvas { width: 100%; height: 100%; }
@@ -28,41 +29,56 @@
     <div id="qrcode" style="margin-top:20px; text-align:center;"></div>
   </div>
 
-  <!-- EMPLOYEE VIEW (Opens on QR Scan) -->
+  <!-- EMPLOYEE VIEW (Target for Google Form Submission) -->
   <div id="employeeView" class="hidden">
     <h2>Attendance Sign-In</h2>
-    <p><b>Topic:</b> <span id="dispTopic"></span><br><b>Date:</b> <span id="dispDate"></span></p>
+    <p><b>Topic:</b> <span id="dispTopic"></span> | <b>Date:</b> <span id="dispDate"></span></p>
     
-    <input type="text" id="empName" placeholder="Full Name" required>
-    <input type="text" id="empId" placeholder="Employee ID" required>
-    <input type="text" id="empNat" placeholder="Nationality" required>
-    <input type="text" id="empPos" placeholder="Trade / Position" required>
-    
-    <label><b>Finger Signature:</b></label>
-    <div class="canvas-container">
-      <canvas id="sigCanvas"></canvas>
-    </div>
-    
-    <button type="button" class="clear-btn" onclick="clearSig()">Clear Signature</button>
-    <button type="button" onclick="submitAttendance()">Submit Attendance</button>
+    <form id="gform" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+      <!-- Hidden Google Form Entry Mapping (Replace entry numbers with your Google Form IDs) -->
+      <input type="hidden" name="entry.424348885" id="gf_project">
+      <input type="hidden" name="entry.90499623" id="gf_topic">
+      <input type="hidden" name="entry.2020908678" id="gf_date">
+      <input type="hidden" name="entry.888888888" id="gf_sig">
+
+      <input type="text" name="entry.490903515" id="empName" placeholder="Full Name" required>
+      <input type="text" name="entry.1712959322" id="empId" placeholder="Employee ID" required>
+      <input type="text" name="entry.580863824" id="empNat" placeholder="Nationality" required>
+      <input type="text" name="entry.1359054700" id="empPos" placeholder="Trade / Position" required>
+      
+      <label><b>Finger Signature:</b></label>
+      <div class="canvas-container">
+        <canvas id="sigCanvas"></canvas>
+      </div>
+      
+      <button type="button" class="clear-btn" onclick="clearSig()">Clear Signature</button>
+      <button type="submit">Submit Attendance</button>
+    </form>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {alert('Attendance submitted successfully!'); location.reload();}"></iframe>
   </div>
 
 <script>
-  // 1. REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_ACTUAL_SCRIPT_ID/exec";
+  let submitted = false;
+  
+  // REPLACE THIS WITH YOUR GOOGLE FORM ACTION URL (ends with /formResponse)
+  const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1cwSybj4a0VNEHIwumD3fXLOgNyd3tL374SwViLSBIkQ";
 
   const urlParams = new URLSearchParams(window.location.search);
   let signaturePad;
 
-  // Initialize view on load
   window.addEventListener('DOMContentLoaded', () => {
     if (urlParams.has('topic')) {
       document.getElementById('initiatorView').classList.add('hidden');
       document.getElementById('employeeView').classList.remove('hidden');
       document.getElementById('dispTopic').innerText = urlParams.get('topic') || '';
       document.getElementById('dispDate').innerText = urlParams.get('date') || '';
+      
+      document.getElementById('gform').action = GOOGLE_FORM_ACTION_URL;
+      document.getElementById('gf_project').value = urlParams.get('project') || '';
+      document.getElementById('gf_topic').value = urlParams.get('topic') || '';
+      document.getElementById('gf_date').value = urlParams.get('date') || '';
 
-      // Initialize canvas with proper resolution sizing
       const canvas = document.getElementById('sigCanvas');
       canvas.width = canvas.parentElement.offsetWidth;
       canvas.height = canvas.parentElement.offsetHeight;
@@ -84,39 +100,14 @@
     if (signaturePad) signaturePad.clear();
   }
 
-  function submitAttendance() {
+  document.getElementById('gform').addEventListener('submit', function(e) {
     if (!signaturePad || signaturePad.isEmpty()) {
+      e.preventDefault();
       alert("Please draw your signature using your finger before submitting.");
-      return;
+      return false;
     }
-
-    const payload = {
-      projectName: urlParams.get('project') || '',
-      courseTopic: urlParams.get('topic') || '',
-      date: urlParams.get('date') || '',
-      name: document.getElementById('empName').value,
-      empId: document.getElementById('empId').value,
-      nationality: document.getElementById('empNat').value,
-      position: document.getElementById('empPos').value,
-      signature: signaturePad.toDataURL()
-    };
-
-    fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.result === "success") {
-        alert("Attendance submitted successfully!");
-        location.reload();
-      } else {
-        alert("Error from server: " + data.error);
-      }
-    })
-    .catch(err => alert("Connection failed: Check APPS_SCRIPT_URL or internet connection. Details: " + err.message));
-  }
+    document.getElementById('gf_sig').value = signaturePad.toDataURL();
+  });
 </script>
 </body>
 </html>
